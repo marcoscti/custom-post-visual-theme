@@ -25,8 +25,8 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'cpvt-admin',
         CPVT_URL . 'assets/js/admin.js',
         ['jquery'],
-        '1.0',
-        true
+        '1.0.1',
+        "all"
     );
 });
 
@@ -220,7 +220,11 @@ function cpvt_sanitize_themes($input)
  * Adds a meta box to select preset per post
  */
 add_action('add_meta_boxes', function () {
-    add_meta_box('cpvt_theme_meta', __('CPVT Theme Preset', 'cpvt'), 'cpvt_meta_box_callback', 'post', 'side', 'low');
+    $post_types = get_post_types([ 'public' => true ]);
+    foreach ($post_types as $pt) {
+        $priority = ($pt === 'noticias') ? 'high' : 'low';
+        add_meta_box('cpvt_theme_meta', __('CPVT Theme Preset', 'cpvt'), 'cpvt_meta_box_callback', $pt, 'side', $priority);
+    }
 });
 
 function cpvt_meta_box_callback($post)
@@ -240,10 +244,12 @@ function cpvt_meta_box_callback($post)
 }
 
 add_action('save_post', function ($post_id) {
+    // Check nonce and capability
     if (!isset($_POST['cpvt_theme_meta_nonce']) || !wp_verify_nonce($_POST['cpvt_theme_meta_nonce'], 'cpvt_theme_meta')) return;
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
     if (!current_user_can('edit_post', $post_id)) return;
-    if (isset($_POST['cpvt_theme'])) {
+
+    if (array_key_exists('cpvt_theme', $_POST)) {
         $val = sanitize_text_field($_POST['cpvt_theme']);
         if ($val === '') {
             delete_post_meta($post_id, 'cpvt_theme');
