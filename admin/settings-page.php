@@ -25,7 +25,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'cpvt-admin',
         CPVT_URL . 'assets/js/admin.js',
         ['jquery'],
-        '1.0.2',
+        '1.0.3',
         "all"
     );
 });
@@ -222,7 +222,7 @@ function cpvt_sanitize_themes($input)
 add_action('add_meta_boxes', function () {
     $post_types = get_post_types([ 'public' => true ]);
     foreach ($post_types as $pt) {
-        $priority = ($pt === 'noticias') ? 'high' : 'low';
+        $priority = ($pt === 'noticia' || $pt === 'post') ? 'high' : 'low';
         add_meta_box('cpvt_theme_meta', __('CPVT Theme Preset', 'cpvt'), 'cpvt_meta_box_callback', $pt, 'side', $priority);
     }
 });

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Custom Post Visual Theme
  * Description: Aplica um tema visual personalizado a posts específicos com base no ID.
- * Version: 1.0.2
+ * Version: 1.0.3
  * Author: Marcos Cordeiro
  * Author URI:        https://github.com/marcoscti
  * License:           GPL-2.0+
@@ -26,13 +26,16 @@ if (is_admin()) {
 
 require_once CPVT_PATH . 'frontend/apply-theme.php';
 
-// Register post meta for 'noticias' to support ACF / Gutenberg UI (REST)
+// Register post meta for post types to support ACF / Gutenberg UI (REST)
 add_action('init', function () {
     if (function_exists('register_post_meta')) {
-        register_post_meta('noticia', 'cpvt_theme', [
-            'show_in_rest' => true,
-            'single' => true,
-            'sanitize_callback' => 'sanitize_text_field',
-        ]);
+        $post_types = ['noticia', 'post'];
+        foreach ($post_types as $pt) {
+            register_post_meta($pt, 'cpvt_theme', [
+                'show_in_rest' => true,
+                'single' => true,
+                'sanitize_callback' => 'sanitize_text_field',
+            ]);
+        }
     }
 });

@@ -3,7 +3,7 @@ if (!defined('ABSPATH')) exit;
 
 add_action('wp_enqueue_scripts', function () {
 
-    if (!is_single()) return;
+    if (!is_singular()) return;
 
     global $post;
     $themes = get_option('cpvt_themes', []);
@@ -34,7 +34,7 @@ add_action('wp_enqueue_scripts', function () {
         'cpvt-theme',
         CPVT_URL . 'assets/css/theme.css',
         [],
-        '1.0.2',
+        '1.0.3',
         "all"
     );
 
@@ -42,11 +42,16 @@ add_action('wp_enqueue_scripts', function () {
     $text_color = isset($preset['text_color']) ? esc_attr($preset['text_color']) : '';
     $title_color = isset($preset['title_color']) ? esc_attr($preset['title_color']) : '';
 
-    $css = sprintf(
-        'body.cpvt-theme { background-color: %s; color: %s; }',
-        $bg_color,
-        $text_color
-    );
+    // Apply backgrounds/colors to a single chosen content container (marked at runtime) to avoid duplicates/overlap
+    $container_selector = 'body.cpvt-theme .cpvt-theme-target';
+
+    $rules = [];
+    if ($bg_color) {
+        $rules[] = "background-color: {$bg_color} !important;";
+    }
+    if ($text_color) {
+        $rules[] = "color: {$text_color} !important;";
+    }
 
     if ($title_color) {
         $selectors = [
@@ -60,7 +65,9 @@ add_action('wp_enqueue_scripts', function () {
             'body.cpvt-theme .elementor-heading-title',
             'body.cpvt-theme .elementor-widget-container .elementor-heading-title',
         ];
-        $css .= sprintf('%s { color: %s !important; }', implode(', ', $selectors), $title_color);
+        $css = sprintf('%s { color: %s !important; }', implode(', ', $selectors), $title_color);
+    } else {
+        $css = '';
     }
 
     $backgrounds = [];
@@ -86,13 +93,52 @@ add_action('wp_enqueue_scripts', function () {
     }
 
     if (!empty($backgrounds)) {
-        $css .= 'body.cpvt-theme { background-image: ' . implode(', ', $backgrounds) . '; background-position: ' . implode(', ', $positions) . '; background-repeat: no-repeat; }';
-        // also apply as fallback to Elementor sections
-        $css .= 'body.cpvt-theme .elementor-top-section, body.cpvt-theme .elementor-section:first-of-type { background-image: ' . implode(', ', $backgrounds) . '; background-position: ' . implode(', ', $positions) . '; background-repeat: no-repeat; }';
+        $rules[] = 'background-image: ' . implode(', ', $backgrounds) . ' !important;';
+        $rules[] = 'background-position: ' . implode(', ', $positions) . ' !important;';
+        $rules[] = 'background-repeat: no-repeat !important;';
     }
 
-    wp_add_inline_style('cpvt-theme', $css);
+    if (!empty($rules)) {
+        $css .= sprintf('%s { %s }', $container_selector, implode(' ', $rules));
+    }
+
+    if ($css) {
+        wp_add_inline_style('cpvt-theme', $css);
+    }
 });
+
+// Ensure only a single content container receives the theme background to avoid duplicate images
+add_action('wp_head', function() {
+    ?>
+    <script>
+    (function(){
+        function markTarget() {
+            var selectors = ['.site-main', '.site-content', '.content-area', '.entry-content', '.elementor-top-section', '.elementor-section:first-of-type'];
+            for (var i = 0; i < selectors.length; i++) {
+                try {
+                    var el = document.querySelector(selectors[i]);
+                    if (el) {
+                        el.classList.add('cpvt-theme-target');
+                        return true;
+                    }
+                } catch (e) { /* ignore invalid selectors in old browsers */ }
+            }
+            return false;
+        }
+
+        // Try immediately, if elements aren't yet parsed try again on DOMContentLoaded
+        if (!markTarget()) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', markTarget);
+            } else {
+                // If already interactive/complete, try once more
+                markTarget();
+            }
+        }
+    })();
+    </script>
+    <?php
+}, 1);
 
 // Fallback: inject inline CSS into head with high priority in case optimizers remove wp_add_inline_style output
 add_action('wp_head', function () {
@@ -146,6 +192,8 @@ add_action('wp_head', function () {
         }
     }
 
+    $container_selector = 'body.cpvt-theme .cpvt-theme-target';
+
     $css = '';
     if ($title_color) {
         $selectors = [
@@ -164,12 +212,11 @@ add_action('wp_head', function () {
     if ($bg_rules) {
         $bg_rules[] = "background-repeat: no-repeat !important;";
         //$bg_rules[] = "background-size: cover !important;";
-        $css .= "body.cpvt-theme { " . implode(' ', $bg_rules) . " }\n";
-        $css .= "body.cpvt-theme .elementor-top-section, body.cpvt-theme .elementor-section:first-of-type { " . implode(' ', $bg_rules) . " }\n";
+        $css .= $container_selector . ' { ' . implode(' ', $bg_rules) . " }\n";
     }
 
     if ($text_color) {
-        $css .= "body.cpvt-theme { color: {$text_color} !important; }\n";
+        $css .= $container_selector . " { color: {$text_color} !important; }\n";
     }
 
     if ($css) {
