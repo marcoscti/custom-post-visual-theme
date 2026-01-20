@@ -43,7 +43,7 @@ add_action('wp_enqueue_scripts', function () {
     $title_color = isset($preset['title_color']) ? esc_attr($preset['title_color']) : '';
 
     // Apply backgrounds/colors to a single chosen content container (marked at runtime) to avoid duplicates/overlap
-    $container_selector = 'body.cpvt-theme .cpvt-theme-target';
+    $container_selector = 'body.cpvt-theme';
 
     $rules = [];
     if ($bg_color) {
@@ -96,6 +96,7 @@ add_action('wp_enqueue_scripts', function () {
         $rules[] = 'background-image: ' . implode(', ', $backgrounds) . ' !important;';
         $rules[] = 'background-position: ' . implode(', ', $positions) . ' !important;';
         $rules[] = 'background-repeat: no-repeat !important;';
+        $rules[] = 'background-size: contain !important;';
     }
 
     if (!empty($rules)) {
@@ -192,7 +193,7 @@ add_action('wp_head', function () {
         }
     }
 
-    $container_selector = 'body.cpvt-theme .cpvt-theme-target';
+    $container_selector = 'body.cpvt-theme';
 
     $css = '';
     if ($title_color) {
@@ -211,7 +212,7 @@ add_action('wp_head', function () {
     if (!empty($images)) $bg_rules[] = "background-image: " . implode(', ', $images) . " !important;";
     if ($bg_rules) {
         $bg_rules[] = "background-repeat: no-repeat !important;";
-        //$bg_rules[] = "background-size: cover !important;";
+        $bg_rules[] = "background-size: contain !important;";
         $css .= $container_selector . ' { ' . implode(' ', $bg_rules) . " }\n";
     }
 
