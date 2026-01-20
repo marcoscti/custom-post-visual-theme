@@ -25,7 +25,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'cpvt-admin',
         CPVT_URL . 'assets/js/admin.js',
         ['jquery'],
-        '1.0.3',
+        '1.0.5',
         "all"
     );
 });
