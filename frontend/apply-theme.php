@@ -34,7 +34,7 @@ add_action('wp_enqueue_scripts', function () {
         'cpvt-theme',
         CPVT_URL . 'assets/css/theme.css',
         [],
-        '1.0.3',
+        '1.0.4',
         "all"
     );
 

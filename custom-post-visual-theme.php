@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Custom Post Visual Theme
  * Description: Aplica um tema visual personalizado a posts específicos com base no ID.
- * Version: 1.0.3
+ * Version: 1.0.4
  * Author: Marcos Cordeiro
  * Author URI:        https://github.com/marcoscti
  * License:           GPL-2.0+
