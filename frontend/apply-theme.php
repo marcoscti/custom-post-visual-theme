@@ -1,94 +1,147 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-add_action('wp_enqueue_scripts', function () {
+// Global variable to hold the active theme preset for the current page load.
+global $cpvt_active_preset;
+$cpvt_active_preset = false;
 
-    if (!is_singular()) return;
+/**
+ * Sets up the theme context on the 'wp' action.
+ *
+ * This hook runs after the main WordPress query is resolved, so conditional tags
+ * like is_singular() and the global $post object are reliably available.
+ * It checks if a visual theme should be applied and stores the preset data.
+ */
+add_action('wp', 'cpvt_setup_theme_context');
+function cpvt_setup_theme_context() {
+    global $cpvt_active_preset;
+
+    if (!is_singular()) {
+        return;
+    }
 
     global $post;
+    if (!isset($post->ID)) {
+        return;
+    }
+
     $themes = get_option('cpvt_themes', []);
+    if (empty($themes)) {
+        return;
+    }
 
     $post_id = intval($post->ID);
+    $found_preset = false;
 
-    // Per-post preset takes precedence
-    $post_preset = get_post_meta($post->ID, 'cpvt_theme', true);
-    $preset = null;
+    // Per-post preset meta field takes precedence.
+    $post_preset_slug = get_post_meta($post_id, 'cpvt_theme', true);
 
-    if ($post_preset && isset($themes[$post_preset])) {
-        $preset = $themes[$post_preset];
+    if ($post_preset_slug && !empty($themes[$post_preset_slug])) {
+        $found_preset = $themes[$post_preset_slug];
     } else {
-        // Find the first preset that targets this post ID
-        foreach ($themes as $slug => $th) {
-            if (empty($th['post_ids'])) continue;
-            $ids = array_filter(array_map('intval', array_map('trim', explode(',', $th['post_ids']))));
-            if (in_array($post_id, $ids, true)) {
-                $preset = $th;
+        // Fallback: Check if the post ID is targeted by any theme's bulk settings.
+        foreach ($themes as $slug => $theme_data) {
+            if (empty($theme_data['post_ids'])) continue;
+
+            $target_ids = array_filter(array_map('intval', array_map('trim', explode(',', $theme_data['post_ids']))));
+            if (in_array($post_id, $target_ids, true)) {
+                $found_preset = $theme_data;
                 break;
             }
         }
     }
 
-    if (! $preset) return;
+    if ($found_preset) {
+        $cpvt_active_preset = $found_preset;
+        // If a theme is active for this page, add the necessary hooks to apply it.
+        add_filter('body_class', 'cpvt_add_theme_body_class');
+        add_action('wp_enqueue_scripts', 'cpvt_enqueue_theme_assets');
+        add_action('wp_head', 'cpvt_output_inline_css_fallback', 999);
+    }
+}
 
-    wp_enqueue_style(
-        'cpvt-theme',
-        CPVT_URL . 'assets/css/theme.css',
-        [],
-        '1.0.4',
-        "all"
-    );
+/**
+ * Adds the 'cpvt-theme' class to the body tag.
+ *
+ * This function is only hooked if a theme is determined to be active.
+ *
+ * @param array $classes An array of body classes.
+ * @return array The modified array of body classes.
+ */
+function cpvt_add_theme_body_class($classes) {
+    $classes[] = 'cpvt-theme';
+    return $classes;
+}
 
-    $bg_color = isset($preset['bg_color']) ? esc_attr($preset['bg_color']) : '';
-    $text_color = isset($preset['text_color']) ? esc_attr($preset['text_color']) : '';
-    $title_color = isset($preset['title_color']) ? esc_attr($preset['title_color']) : '';
+/**
+ * Enqueues theme stylesheet and adds inline styles.
+ *
+ * This function is only hooked if a theme is determined to be active.
+ */
+function cpvt_enqueue_theme_assets() {
+    global $cpvt_active_preset;
 
-    // Apply backgrounds/colors to a single chosen content container (marked at runtime) to avoid duplicates/overlap
+    if (empty($cpvt_active_preset)) {
+        return;
+    }
+
+    wp_enqueue_style('cpvt-theme', CPVT_URL . 'assets/css/theme.css', [], '1.0.5', 'all');
+
+    $css = cpvt_generate_theme_css($cpvt_active_preset);
+    if ($css) {
+        wp_add_inline_style('cpvt-theme', $css);
+    }
+}
+
+/**
+ * Outputs inline CSS as a fallback.
+ *
+ * This is a fallback for optimization plugins that might strip out styles
+ * added by wp_add_inline_style. It runs late in the wp_head action.
+ */
+function cpvt_output_inline_css_fallback() {
+    global $cpvt_active_preset;
+
+    if (empty($cpvt_active_preset) || did_action('wp_enqueue_scripts')) {
+        return;
+    }
+    
+    $css = cpvt_generate_theme_css($cpvt_active_preset);
+    if ($css) {
+        echo '<style id="cpvt-inline-css-fallback">' . $css . '</style>';
+    }
+}
+
+/**
+ * Generates the dynamic CSS rules based on a theme preset.
+ *
+ * @param array $preset The theme preset data.
+ * @return string The generated CSS rules.
+ */
+function cpvt_generate_theme_css($preset) {
+    if (empty($preset)) {
+        return '';
+    }
+
+    $bg_color    = !empty($preset['bg_color']) ? esc_attr($preset['bg_color']) : '';
+    $text_color  = !empty($preset['text_color']) ? esc_attr($preset['text_color']) : '';
+    $title_color = !empty($preset['title_color']) ? esc_attr($preset['title_color']) : '';
+
     $container_selector = 'body.cpvt-theme';
-
+    $css = '';
     $rules = [];
-    if ($bg_color) {
-        $rules[] = "background-color: {$bg_color} !important;";
-    }
-    if ($text_color) {
-        $rules[] = "color: {$text_color} !important;";
-    }
 
-    if ($title_color) {
-        $selectors = [
-            'body.cpvt-theme .entry-title',
-            'body.cpvt-theme .post-title',
-            'body.cpvt-theme h1.entry-title',
-            'body.cpvt-theme .entry-header .entry-title',
-            'body.cpvt-theme .entry-header h1',
-            'body.cpvt-theme h1',
-            'body.cpvt-theme .elementor-widget-heading .elementor-heading-title',
-            'body.cpvt-theme .elementor-heading-title',
-            'body.cpvt-theme .elementor-widget-container .elementor-heading-title',
-        ];
-        $css = sprintf('%s { color: %s !important; }', implode(', ', $selectors), $title_color);
-    } else {
-        $css = '';
-    }
+    // Background color and text color for the main container
+    if ($bg_color)   $rules[] = "background-color: {$bg_color} !important;";
+    if ($text_color) $rules[] = "color: {$text_color} !important;";
 
+    // Background images
     $backgrounds = [];
-    $positions = [];
+    $positions   = [];
     foreach (['top_left', 'top_right', 'bottom_left', 'bottom_right'] as $pos) {
         if (!empty($preset[$pos])) {
             $backgrounds[] = "url('" . esc_url($preset[$pos]) . "')";
-            switch ($pos) {
-                case 'top_left':
-                    $positions[] = 'left top';
-                    break;
-                case 'top_right':
-                    $positions[] = 'right top';
-                    break;
-                case 'bottom_left':
-                    $positions[] = 'left bottom';
-                    break;
-                case 'bottom_right':
-                    $positions[] = 'right bottom';
-                    break;
-            }
+            $positions[] = str_replace('_', ' ', $pos); // 'top_left' -> 'top left'
         }
     }
 
@@ -103,15 +156,36 @@ add_action('wp_enqueue_scripts', function () {
         $css .= sprintf('%s { %s }', $container_selector, implode(' ', $rules));
     }
 
-    if ($css) {
-        wp_add_inline_style('cpvt-theme', $css);
+    // Title color for various common title selectors
+    if ($title_color) {
+        $selectors = [
+            'body.cpvt-theme .entry-title',
+            'body.cpvt-theme .post-title',
+            'body.cpvt-theme h1.entry-title',
+            'body.cpvt-theme .entry-header .entry-title',
+            'body.cpvt-theme .entry-header h1',
+            'body.cpvt-theme h1',
+            'body.cpvt-theme .elementor-widget-heading .elementor-heading-title',
+            'body.cpvt-theme .elementor-heading-title',
+            'body.cpvt-theme .elementor-widget-container .elementor-heading-title',
+        ];
+        $css .= sprintf('%s { color: %s !important; }', implode(', ', $selectors), $title_color);
     }
-});
 
-// Ensure only a single content container receives the theme background to avoid duplicate images
-add_action('wp_head', function() {
+    return $css;
+}
+
+// The JavaScript for marking a theme target is not dependent on the preset data,
+// so it can remain as it was. It helps scope the theme to a specific content area.
+add_action('wp_head', 'cpvt_mark_theme_target_script', 1);
+function cpvt_mark_theme_target_script() {
+    // Only run this if a theme is actually active.
+    global $cpvt_active_preset;
+    if (empty($cpvt_active_preset)) {
+        return;
+    }
     ?>
-    <script>
+    <script id="cpvt-mark-target-script">
     (function(){
         function markTarget() {
             var selectors = ['.site-main', '.site-content', '.content-area', '.entry-content', '.elementor-top-section', '.elementor-section:first-of-type'];
@@ -122,134 +196,18 @@ add_action('wp_head', function() {
                         el.classList.add('cpvt-theme-target');
                         return true;
                     }
-                } catch (e) { /* ignore invalid selectors in old browsers */ }
+                } catch (e) { /* Ignore invalid selectors */ }
             }
             return false;
         }
 
-        // Try immediately, if elements aren't yet parsed try again on DOMContentLoaded
-        if (!markTarget()) {
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', markTarget);
-            } else {
-                // If already interactive/complete, try once more
-                markTarget();
-            }
+        // Try immediately. If DOM isn't ready, wait for it.
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', markTarget);
+        } else {
+            markTarget();
         }
     })();
     </script>
     <?php
-}, 1);
-
-// Fallback: inject inline CSS into head with high priority in case optimizers remove wp_add_inline_style output
-add_action('wp_head', function () {
-    if (!is_singular()) return;
-
-    global $post;
-    $themes = get_option('cpvt_themes', []);
-    $post_id = intval($post->ID);
-
-    // Determine applicable preset
-    $preset = null;
-    $post_preset = get_post_meta($post->ID, 'cpvt_theme', true);
-    if ($post_preset && isset($themes[$post_preset])) {
-        $preset = $themes[$post_preset];
-    } else {
-        foreach ($themes as $slug => $th) {
-            if (empty($th['post_ids'])) continue;
-            $ids = array_filter(array_map('intval', array_map('trim', explode(',', $th['post_ids']))));
-            if (in_array($post_id, $ids, true)) {
-                $preset = $th;
-                break;
-            }
-        }
-    }
-
-    if (! $preset) return;
-
-    $bg_color = isset($preset['bg_color']) ? esc_attr($preset['bg_color']) : '';
-    $text_color = isset($preset['text_color']) ? esc_attr($preset['text_color']) : '';
-    $title_color = isset($preset['title_color']) ? esc_attr($preset['title_color']) : '';
-
-    $images = [];
-    $positions = [];
-    foreach (['top_left', 'top_right', 'bottom_left', 'bottom_right'] as $pos) {
-        if (!empty($preset[$pos])) {
-            $images[] = "url('" . esc_url($preset[$pos]) . "')";
-            switch ($pos) {
-                case 'top_left':
-                    $positions[] = 'left top';
-                    break;
-                case 'top_right':
-                    $positions[] = 'right top';
-                    break;
-                case 'bottom_left':
-                    $positions[] = 'left bottom';
-                    break;
-                case 'bottom_right':
-                    $positions[] = 'right bottom';
-                    break;
-            }
-        }
-    }
-
-    $container_selector = 'body.cpvt-theme';
-
-    $css = '';
-    if ($title_color) {
-        $selectors = [
-            'body.cpvt-theme .entry-title',
-            'body.cpvt-theme h1',
-            'body.cpvt-theme .elementor-widget-heading .elementor-heading-title',
-            'body.cpvt-theme .elementor-heading-title',
-            'body.cpvt-theme .elementor-widget-container .elementor-heading-title',
-        ];
-        $css .= implode(', ', $selectors) . " { color: {$title_color} !important; }\n";
-    }
-
-    $bg_rules = [];
-    if ($bg_color) $bg_rules[] = "background-color: {$bg_color} !important;";
-    if (!empty($images)) $bg_rules[] = "background-image: " . implode(', ', $images) . " !important;";
-    if ($bg_rules) {
-        $bg_rules[] = "background-repeat: no-repeat !important;";
-        $bg_rules[] = "background-size: contain !important;";
-        $css .= $container_selector . ' { ' . implode(' ', $bg_rules) . " }\n";
-    }
-
-    if ($text_color) {
-        $css .= $container_selector . " { color: {$text_color} !important; }\n";
-    }
-
-    if ($css) {
-        echo "<style id=\"cpvt-inline-css\">\n" . $css . "\n</style>\n";
-    }
-}, 999);
-
-/**
- * Add a body class when the visual theme should be active (no need to wrap content)
- */
-add_filter('body_class', function ($classes) {
-    if (!is_singular()) return $classes;
-
-    global $post;
-    $themes = get_option('cpvt_themes', []);
-
-    // Per-post preset takes precedence
-    $post_preset = get_post_meta($post->ID, 'cpvt_theme', true);
-    if ($post_preset && isset($themes[$post_preset])) {
-        $classes[] = 'cpvt-theme';
-        return $classes;
-    }
-
-    $post_id = intval($post->ID);
-    foreach ($themes as $slug => $th) {
-        if (empty($th['post_ids'])) continue;
-        $ids = array_filter(array_map('intval', array_map('trim', explode(',', $th['post_ids']))));
-        if (in_array($post_id, $ids, true)) {
-            $classes[] = 'cpvt-theme';
-            break;
-        }
-    }
-
-    return $classes;
-});
+}
