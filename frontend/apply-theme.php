@@ -54,23 +54,9 @@ function cpvt_setup_theme_context() {
     if ($found_preset) {
         $cpvt_active_preset = $found_preset;
         // If a theme is active for this page, add the necessary hooks to apply it.
-        add_filter('body_class', 'cpvt_add_theme_body_class');
         add_action('wp_enqueue_scripts', 'cpvt_enqueue_theme_assets');
         add_action('wp_head', 'cpvt_output_inline_css_fallback', 999);
     }
-}
-
-/**
- * Adds the 'cpvt-theme' class to the body tag.
- *
- * This function is only hooked if a theme is determined to be active.
- *
- * @param array $classes An array of body classes.
- * @return array The modified array of body classes.
- */
-function cpvt_add_theme_body_class($classes) {
-    $classes[] = 'cpvt-theme';
-    return $classes;
 }
 
 /**
@@ -85,11 +71,12 @@ function cpvt_enqueue_theme_assets() {
         return;
     }
 
-    wp_enqueue_style('cpvt-theme', CPVT_URL . 'assets/css/theme.css', [], '1.0.5', 'all');
-
     $css = cpvt_generate_theme_css($cpvt_active_preset);
     if ($css) {
-        wp_add_inline_style('cpvt-theme', $css);
+        // Use a unique handle for the inline styles
+        wp_register_style('cpvt-inline-styles', false);
+        wp_enqueue_style('cpvt-inline-styles');
+        wp_add_inline_style('cpvt-inline-styles', $css);
     }
 }
 
@@ -102,7 +89,8 @@ function cpvt_enqueue_theme_assets() {
 function cpvt_output_inline_css_fallback() {
     global $cpvt_active_preset;
 
-    if (empty($cpvt_active_preset) || did_action('wp_enqueue_scripts')) {
+    // Check if styles have already been enqueued
+    if (empty($cpvt_active_preset) || wp_style_is('cpvt-inline-styles', 'enqueued')) {
         return;
     }
     
@@ -123,53 +111,48 @@ function cpvt_generate_theme_css($preset) {
         return '';
     }
 
-    $bg_color    = !empty($preset['bg_color']) ? esc_attr($preset['bg_color']) : '';
-    $text_color  = !empty($preset['text_color']) ? esc_attr($preset['text_color']) : '';
-    $title_color = !empty($preset['title_color']) ? esc_attr($preset['title_color']) : '';
+    $custom_selector = trim(get_option('cpvt_target_selector', ''));
+    $container_selector = !empty($custom_selector) ? $custom_selector : '.cpvt-theme-target';
 
-    $container_selector = 'body.cpvt-theme';
     $css = '';
     $rules = [];
-
-    // Background color and text color for the main container
-    if ($bg_color)   $rules[] = "background-color: {$bg_color} !important;";
-    if ($text_color) $rules[] = "color: {$text_color} !important;";
+    
+    // Sanitize position values, default to '0' if empty.
+    $top_y = sanitize_text_field($preset['top_vertical_position'] ?? '0');
+    $bottom_y = sanitize_text_field($preset['bottom_vertical_position'] ?? '0');
 
     // Background images
     $backgrounds = [];
-    $positions   = [];
-    foreach (['top_left', 'top_right', 'bottom_left', 'bottom_right'] as $pos) {
-        if (!empty($preset[$pos])) {
-            $backgrounds[] = "url('" . esc_url($preset[$pos]) . "')";
-            $positions[] = str_replace('_', ' ', $pos); // 'top_left' -> 'top left'
-        }
+    $positions = [];
+    
+    if (!empty($preset['top_left'])) {
+        $backgrounds[] = "url('" . esc_url($preset['top_left']) . "')";
+        $positions[] = 'left ' . $top_y;
+    }
+    if (!empty($preset['top_right'])) {
+        $backgrounds[] = "url('" . esc_url($preset['top_right']) . "')";
+        $positions[] = 'right ' . $top_y;
+    }
+    if (!empty($preset['bottom_left'])) {
+        $backgrounds[] = "url('" . esc_url($preset['bottom_left']) . "')";
+        $positions[] = 'left bottom ' . $bottom_y;
+    }
+    if (!empty($preset['bottom_right'])) {
+        $backgrounds[] = "url('" . esc_url($preset['bottom_right']) . "')";
+        $positions[] = 'right bottom ' . $bottom_y;
     }
 
     if (!empty($backgrounds)) {
         $rules[] = 'background-image: ' . implode(', ', $backgrounds) . ' !important;';
         $rules[] = 'background-position: ' . implode(', ', $positions) . ' !important;';
         $rules[] = 'background-repeat: no-repeat !important;';
-        $rules[] = 'background-size: contain !important;';
+        $rules[] = 'background-size: auto !important;';
+        // Ensure the container has a position context for absolute children if ever needed
+        $rules[] = 'position: relative;'; 
     }
 
     if (!empty($rules)) {
         $css .= sprintf('%s { %s }', $container_selector, implode(' ', $rules));
-    }
-
-    // Title color for various common title selectors
-    if ($title_color) {
-        $selectors = [
-            'body.cpvt-theme .entry-title',
-            'body.cpvt-theme .post-title',
-            'body.cpvt-theme h1.entry-title',
-            'body.cpvt-theme .entry-header .entry-title',
-            'body.cpvt-theme .entry-header h1',
-            'body.cpvt-theme h1',
-            'body.cpvt-theme .elementor-widget-heading .elementor-heading-title',
-            'body.cpvt-theme .elementor-heading-title',
-            'body.cpvt-theme .elementor-widget-container .elementor-heading-title',
-        ];
-        $css .= sprintf('%s { color: %s !important; }', implode(', ', $selectors), $title_color);
     }
 
     return $css;
@@ -184,11 +167,19 @@ function cpvt_mark_theme_target_script() {
     if (empty($cpvt_active_preset)) {
         return;
     }
+
+    // If a custom selector is defined, do nothing. The CSS will target it directly.
+    $custom_selector = trim(get_option('cpvt_target_selector', ''));
+    if (!empty($custom_selector)) {
+        return;
+    }
+
+    // If no custom selector, inject script to find a target and add a class.
     ?>
     <script id="cpvt-mark-target-script">
     (function(){
         function markTarget() {
-            var selectors = ['.site-main', '.site-content', '.content-area', '.entry-content', '.elementor-top-section', '.elementor-section:first-of-type'];
+            var selectors = ['.elementor-location-single', '.site-main', '.site-content', '.content-area', '.entry-content', '.elementor-top-section', '.elementor-section:first-of-type'];
             for (var i = 0; i < selectors.length; i++) {
                 try {
                     var el = document.querySelector(selectors[i]);
