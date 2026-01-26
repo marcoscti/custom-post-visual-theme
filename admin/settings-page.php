@@ -38,7 +38,7 @@ function cpvt_render_settings_page()
     if (! current_user_can('manage_options')) {
         return;
     }
-    ?>
+?>
     <div class="wrap">
         <h1><?php echo esc_html__('Custom Post Visual Theme', 'cpvt'); ?></h1>
 
@@ -50,7 +50,7 @@ function cpvt_render_settings_page()
             ?>
         </form>
     </div>
-    <?php
+<?php
 }
 
 /**
@@ -98,14 +98,15 @@ add_action('admin_init', function () {
 /**
  * Renderiza o campo do seletor de CSS
  */
-function cpvt_field_target_selector() {
+function cpvt_field_target_selector()
+{
     $selector = get_option('cpvt_target_selector', '');
-    ?>
+?>
     <input type="text" name="cpvt_target_selector" value="<?php echo esc_attr($selector); ?>" class="regular-text">
     <p class="description">
         <?php echo esc_html__('Especifique o seletor de CSS (ex: .minha-classe, #meu-id) onde o tema será aplicado. Se deixado em branco, o plugin tentará encontrar um seletor padrão.', 'cpvt'); ?>
     </p>
-    <?php
+<?php
 }
 
 /**
@@ -114,16 +115,52 @@ function cpvt_field_target_selector() {
 function cpvt_field_themes()
 {
     $themes = get_option('cpvt_themes', []);
-    ?>
+?>
     <div id="cpvt-themes">
         <style>
-            .cpvt-themes-list { display:flex; flex-direction:column; gap:1rem; margin-top:1rem; }
-            .cpvt-theme-item { border:1px solid #e1e1e1; padding:12px; border-radius:6px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.02); }
-            .cpvt-theme-item p { margin:0 0 8px; }
-            .cpvt-pos-label { font-weight:600; display:block; margin-bottom:4px; }
-            .cpvt-pos-desc { font-size:12px; color:#666; margin-left:4px; display:block; }
-            .cpvt-image-row { display: flex; gap: 1rem; }
-            .cpvt-image-col { flex: 1; }
+            .cpvt-themes-list {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+                margin-top: 1rem;
+            }
+
+            .cpvt-theme-item {
+                border: 1px solid #e1e1e1;
+                padding: 12px;
+                border-radius: 6px;
+                background: #fff;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+            }
+
+            .cpvt-theme-item p {
+                margin: 0 0 8px;
+            }
+
+            .cpvt-pos-label {
+                font-weight: 600;
+                display: block;
+                margin-bottom: 4px;
+            }
+
+            .cpvt-pos-desc {
+                font-size: 12px;
+                color: #666;
+                margin-left: 4px;
+                display: block;
+            }
+
+            .cpvt-image-row {
+                display: flex;
+                gap: 1rem;
+            }
+
+            .cpvt-image-col {
+                flex: 1;
+            }
+            .regular-text{
+                max-width: 80%;
+            }
         </style>
         <p><button type="button" class="button cpvt-add-theme"><?php echo esc_html__('Adicionar Preset', 'cpvt'); ?></button></p>
         <div class="cpvt-themes-list">
@@ -131,9 +168,16 @@ function cpvt_field_themes()
                 <div class="cpvt-theme-item">
                     <input type="hidden" name="cpvt_themes[<?php echo esc_attr($slug); ?>][slug]" value="<?php echo esc_attr($slug); ?>">
                     <p><label><?php echo esc_html__('Rótulo', 'cpvt'); ?>: <input type="text" name="cpvt_themes[<?php echo esc_attr($slug); ?>][label]" value="<?php echo esc_attr($th['label'] ?? ''); ?>"></label></p>
-                    <p><label><?php echo esc_html__('IDs dos Posts (vírgula separados)', 'cpvt'); ?>: <input type="text" name="cpvt_themes[<?php echo esc_attr($slug); ?>][post_ids]" value="<?php echo esc_attr($th['post_ids'] ?? ''); ?>" class="regular-text"></label></p>
-                    <p><label><?php echo esc_html__('Posição Vertical Superior (ex: 100px, 20%, etc)', 'cpvt'); ?>: <input type="text" name="cpvt_themes[<?php echo esc_attr($slug); ?>][top_vertical_position]" value="<?php echo esc_attr($th['top_vertical_position'] ?? ''); ?>"></label></p>
-                    <p><label><?php echo esc_html__('Posição Vertical Inferior (ex: 100px, 20%, etc)', 'cpvt'); ?>: <input type="text" name="cpvt_themes[<?php echo esc_attr($slug); ?>][bottom_vertical_position]" value="<?php echo esc_attr($th['bottom_vertical_position'] ?? ''); ?>"></label></p>
+                    <p><label><?php echo esc_html__('IDs dos Posts (separados por vírgula)', 'cpvt'); ?>: <input type="text" name="cpvt_themes[<?php echo esc_attr($slug); ?>][post_ids]" value="<?php echo esc_attr($th['post_ids'] ?? ''); ?>" class="regular-text"></label></p>
+                    <p><label><?php echo esc_html__('Posição Vertical Superior (ex: 100px, 20%, etc)', 'cpvt'); ?>: <input type="text" name="cpvt_themes[<?php echo esc_attr($slug); ?>][top_vertical_position]" value="<?php echo esc_attr($th['top_vertical_position'] ?? ''); ?>"></label>
+                        <label><?php echo esc_html__('Posição Vertical Inferior (ex: 100px, 20%, etc)', 'cpvt'); ?>: <input type="text" name="cpvt_themes[<?php echo esc_attr($slug); ?>][bottom_vertical_position]" value="<?php echo esc_attr($th['bottom_vertical_position'] ?? ''); ?>"></label>
+                    </p>
+
+                    <p><label><?php echo esc_html__('Tamanho do Fundo (CSS background-size)', 'cpvt'); ?>: <input type="text" name="cpvt_themes[<?php echo esc_attr($slug); ?>][background_size]" value="<?php echo esc_attr($th['background_size'] ?? 'auto'); ?>" class="regular-text" style="width: 150px;"><span class="cpvt-pos-desc" style="display: inline; margin-left: 5px;"><?php echo esc_html__('Ex: auto, contain, cover, 15%.', 'cpvt'); ?></span></label></p>
+                    <p>
+                        <label><?php echo esc_html__('Tamanho do Fundo em Mobile (CSS background-size)', 'cpvt'); ?>: <input type="text" name="cpvt_themes[<?php echo esc_attr($slug); ?>][background_size_mobile]" value="<?php echo esc_attr($th['background_size_mobile'] ?? 'auto'); ?>" class="regular-text"  style="width: 150px;"><span class="cpvt-pos-desc" style="display: inline; margin-left: 5px;"><?php echo esc_html__('Ex: auto, contain, cover, 30%.', 'cpvt'); ?></span></label>
+                    </p>
+
                     <?php
                     $positions_map = [
                         'top_left' => __('Superior Esquerda', 'cpvt'),
@@ -192,10 +236,12 @@ function cpvt_field_themes()
         <div id="cpvt-theme-template" style="display:none;">
             <div class="cpvt-theme-item">
                 <input type="hidden" data-name="cpvt_themes[__SLUG__][slug]" value="__SLUG__">
-                <p><label><?php echo esc_html__('Título da personalização', 'cpvt'); ?>: <input type="text" data-name="cpvt_themes[__SLUG__][label]" value=""></label></p>
-                <p><label><?php echo esc_html__('IDs dos Posts (vírgula separados)', 'cpvt'); ?>: <input type="text" data-name="cpvt_themes[__SLUG__][post_ids]" value="" class="regular-text"></label></p>
+                <p><label><?php echo esc_html__('Rótulo', 'cpvt'); ?>: <input type="text" data-name="cpvt_themes[__SLUG__][label]" value=""></label></p>
+                <p><label><?php echo esc_html__('IDs dos Posts (separados por vírgula)', 'cpvt'); ?>: <input type="text" data-name="cpvt_themes[__SLUG__][post_ids]" value="" class="regular-text"></label></p>
                 <p><label><?php echo esc_html__('Posição Vertical Superior (ex: 100px, 20%, etc)', 'cpvt'); ?>: <input type="text" data-name="cpvt_themes[__SLUG__][top_vertical_position]" value=""></label></p>
                 <p><label><?php echo esc_html__('Posição Vertical Inferior (ex: 100px, 20%, etc)', 'cpvt'); ?>: <input type="text" data-name="cpvt_themes[__SLUG__][bottom_vertical_position]" value=""></label></p>
+                <p><label><?php echo esc_html__('Tamanho do Fundo', 'cpvt'); ?>: <input type="text" data-name="cpvt_themes[__SLUG__][background_size]" value="auto" class="regular-text"><span class="cpvt-pos-desc" style="display: inline; margin-left: 5px;"><?php echo esc_html__('Ex: auto, contain, cover, 15%.', 'cpvt'); ?></span></label></p>
+                <p><label><?php echo esc_html__('Tamanho do Fundo Mobile', 'cpvt'); ?>: <input type="text" data-name="cpvt_themes[__SLUG__][background_size_mobile]" value="auto" class="regular-text"><span class="cpvt-pos-desc" style="display: inline; margin-left: 5px;"><?php echo esc_html__('Ex: auto, contain, cover, 30%.', 'cpvt'); ?></span></label></p>
                 <?php
                 $positions_map = [
                     'top_left' => __('Superior Esquerda', 'cpvt'),
@@ -250,7 +296,7 @@ function cpvt_field_themes()
             </div>
         </div>
     </div>
-    <?php
+<?php
 }
 
 /**
@@ -272,6 +318,8 @@ function cpvt_sanitize_themes($input)
         $theme['label'] = $label;
         $theme['top_vertical_position'] = sanitize_text_field($data['top_vertical_position'] ?? '');
         $theme['bottom_vertical_position'] = sanitize_text_field($data['bottom_vertical_position'] ?? '');
+        $theme['background_size'] = sanitize_text_field($data['background_size'] ?? 'auto');
+        $theme['background_size_mobile'] = sanitize_text_field($data['background_size_mobile'] ?? 'auto');
         $post_ids_raw = sanitize_text_field($data['post_ids'] ?? '');
         $ids = array_filter(array_map('intval', array_map('trim', explode(',', $post_ids_raw))), function ($v) {
             return $v > 0;
@@ -297,7 +345,7 @@ function cpvt_sanitize_themes($input)
  * Adds a meta box to select preset per post
  */
 add_action('add_meta_boxes', function () {
-    $post_types = get_post_types([ 'public' => true ]);
+    $post_types = get_post_types(['public' => true]);
     foreach ($post_types as $pt) {
         $priority = ($pt === 'noticia' || $pt === 'post') ? 'high' : 'low';
         add_meta_box('cpvt_theme_meta', __('CPVT Theme Preset', 'cpvt'), 'cpvt_meta_box_callback', $pt, 'side', $priority);
@@ -309,7 +357,7 @@ function cpvt_meta_box_callback($post)
     wp_nonce_field('cpvt_theme_meta', 'cpvt_theme_meta_nonce');
     $themes = get_option('cpvt_themes', []);
     $current = get_post_meta($post->ID, 'cpvt_theme', true);
-    ?>
+?>
     <label for="cpvt_theme_select"><?php echo esc_html__('Preset', 'cpvt'); ?></label>
     <select name="cpvt_theme" id="cpvt_theme_select" style="width:100%">
         <option value=""><?php echo esc_html__('(none)', 'cpvt'); ?></option>
@@ -317,7 +365,7 @@ function cpvt_meta_box_callback($post)
             <option value="<?php echo esc_attr($slug); ?>" <?php selected($current, $slug); ?>><?php echo esc_html($th['label'] ?? $slug); ?></option>
         <?php endforeach; ?>
     </select>
-    <?php
+<?php
 }
 
 add_action('save_post', function ($post_id) {
@@ -334,4 +382,4 @@ add_action('save_post', function ($post_id) {
             update_post_meta($post_id, 'cpvt_theme', $val);
         }
     }
-}, 10, 1); 
+}, 10, 1);

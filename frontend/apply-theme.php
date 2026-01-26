@@ -93,8 +93,8 @@ function cpvt_output_inline_css_fallback() {
     if (empty($cpvt_active_preset) || wp_style_is('cpvt-inline-styles', 'enqueued')) {
         return;
     }
-    
     $css = cpvt_generate_theme_css($cpvt_active_preset);
+   
     if ($css) {
         echo '<style id="cpvt-inline-css-fallback">' . $css . '</style>';
     }
@@ -120,6 +120,10 @@ function cpvt_generate_theme_css($preset) {
     // Sanitize position values, default to '0' if empty.
     $top_y = sanitize_text_field($preset['top_vertical_position'] ?? '0');
     $bottom_y = sanitize_text_field($preset['bottom_vertical_position'] ?? '0');
+    $background_size = sanitize_text_field($preset['background_size'] ?? 'auto');
+    if (empty($background_size)) {
+        $background_size = 'auto';
+    }
 
     // Background images
     $backgrounds = [];
@@ -146,13 +150,17 @@ function cpvt_generate_theme_css($preset) {
         $rules[] = 'background-image: ' . implode(', ', $backgrounds) . ' !important;';
         $rules[] = 'background-position: ' . implode(', ', $positions) . ' !important;';
         $rules[] = 'background-repeat: no-repeat !important;';
-        $rules[] = 'background-size: auto !important;';
-        // Ensure the container has a position context for absolute children if ever needed
-        $rules[] = 'position: relative;'; 
+        $rules[] = 'background-size: ' . $background_size . ' !important;';
+        $rules[] = 'position: relative;';
     }
 
     if (!empty($rules)) {
         $css .= sprintf('%s { %s }', $container_selector, implode(' ', $rules));
+    }
+
+    $background_size_mobile = sanitize_text_field($preset['background_size_mobile'] ?? '');
+    if (!empty($background_size_mobile)) {
+        $css .= sprintf('@media (max-width: 768px) { %s { background-size: %s !important; } }', $container_selector, $background_size_mobile);
     }
 
     return $css;
