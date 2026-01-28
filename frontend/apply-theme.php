@@ -116,6 +116,11 @@ function cpvt_generate_theme_css($preset) {
 
     $css = '';
     $rules = [];
+
+    // Sanitize and add background color if it exists.
+    if (!empty($preset['background_color'])) {
+        $css .= 'body { background-color: ' . sanitize_text_field($preset['background_color']) . ' !important; }';
+    }
     
     // Sanitize position values, default to '0' if empty.
     $top_y = sanitize_text_field($preset['top_vertical_position'] ?? '0');

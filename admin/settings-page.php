@@ -177,6 +177,9 @@ function cpvt_field_themes()
                     <p>
                         <label><?php echo esc_html__('Tamanho do Fundo em Mobile (CSS background-size)', 'cpvt'); ?>: <input type="text" name="cpvt_themes[<?php echo esc_attr($slug); ?>][background_size_mobile]" value="<?php echo esc_attr($th['background_size_mobile'] ?? 'auto'); ?>" class="regular-text"  style="width: 150px;"><span class="cpvt-pos-desc" style="display: inline; margin-left: 5px;"><?php echo esc_html__('Ex: auto, contain, cover, 30%.', 'cpvt'); ?></span></label>
                     </p>
+                    <p>
+                        <label><?php echo esc_html__('Cor do fundo da página', 'cpvt'); ?>: <input type="text" name="cpvt_themes[<?php echo esc_attr($slug); ?>][background_color]" value="<?php echo esc_attr($th['background_color'] ?? ''); ?>" class="regular-text"  style="width: 150px;"><span class="cpvt-pos-desc" style="display: inline; margin-left: 5px;"><?php echo esc_html__('Ex: #ffffff, rgba(0,0,0,0.5), etc.', 'cpvt'); ?></span></label>
+                    </p>
 
                     <?php
                     $positions_map = [
@@ -242,6 +245,7 @@ function cpvt_field_themes()
                 <p><label><?php echo esc_html__('Posição Vertical Inferior (ex: 100px, 20%, etc)', 'cpvt'); ?>: <input type="text" data-name="cpvt_themes[__SLUG__][bottom_vertical_position]" value=""></label></p>
                 <p><label><?php echo esc_html__('Tamanho do Fundo', 'cpvt'); ?>: <input type="text" data-name="cpvt_themes[__SLUG__][background_size]" value="auto" class="regular-text"><span class="cpvt-pos-desc" style="display: inline; margin-left: 5px;"><?php echo esc_html__('Ex: auto, contain, cover, 15%.', 'cpvt'); ?></span></label></p>
                 <p><label><?php echo esc_html__('Tamanho do Fundo Mobile', 'cpvt'); ?>: <input type="text" data-name="cpvt_themes[__SLUG__][background_size_mobile]" value="auto" class="regular-text"><span class="cpvt-pos-desc" style="display: inline; margin-left: 5px;"><?php echo esc_html__('Ex: auto, contain, cover, 30%.', 'cpvt'); ?></span></label></p>
+                <p><label><?php echo esc_html__('Cor do fundo da página', 'cpvt'); ?>: <input type="color" data-name="cpvt_themes[__SLUG__][background_color]" value="" class="regular-text"  style="width: 150px;"><span class="cpvt-pos-desc" style="display: inline; margin-left: 5px;"><?php echo esc_html__('Ex: #ffffff, rgba(0,0,0,0.5), etc.', 'cpvt'); ?></span></label></p>
                 <?php
                 $positions_map = [
                     'top_left' => __('Superior Esquerda', 'cpvt'),
@@ -320,6 +324,7 @@ function cpvt_sanitize_themes($input)
         $theme['bottom_vertical_position'] = sanitize_text_field($data['bottom_vertical_position'] ?? '');
         $theme['background_size'] = sanitize_text_field($data['background_size'] ?? 'auto');
         $theme['background_size_mobile'] = sanitize_text_field($data['background_size_mobile'] ?? 'auto');
+        $theme['background_color'] = sanitize_text_field($data['background_color'] ?? '');
         $post_ids_raw = sanitize_text_field($data['post_ids'] ?? '');
         $ids = array_filter(array_map('intval', array_map('trim', explode(',', $post_ids_raw))), function ($v) {
             return $v > 0;
@@ -330,7 +335,7 @@ function cpvt_sanitize_themes($input)
         }
 
         // Skip empty preset (no label, no post IDs, no images)
-        $has_content = (bool) ($theme['label'] || $theme['post_ids'] || $theme['top_left'] || $theme['top_right'] || $theme['bottom_left'] || $theme['bottom_right']);
+        $has_content = (bool) ($theme['label'] || $theme['post_ids'] || $theme['top_left'] || $theme['top_right'] || $theme['bottom_left'] || $theme['bottom_right'] || $theme['background_color']);
         if (! $has_content) {
             continue;
         }
@@ -348,7 +353,7 @@ add_action('add_meta_boxes', function () {
     $post_types = get_post_types(['public' => true]);
     foreach ($post_types as $pt) {
         $priority = ($pt === 'noticia' || $pt === 'post') ? 'high' : 'low';
-        add_meta_box('cpvt_theme_meta', __('CPVT Theme Preset', 'cpvt'), 'cpvt_meta_box_callback', $pt, 'side', $priority);
+        add_meta_box('cpvt_theme_meta', __('Tema da Notícia', 'cpvt'), 'cpvt_meta_box_callback', $pt, 'side', $priority);
     }
 });
 
